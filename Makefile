@@ -55,6 +55,14 @@ examples/katr: checkmakeversion
 	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/katr.py
 examples/shapenet: checkmakeversion
 	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/shapenet.py
+examples/rigid: checkmakeversion
+	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/rigid.py
+# Make gif of rendered images for rigid
+# install imagemagick with $ sudo apt-get install imagemagick
+examples/rigid_gif: checkmakeversion
+	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/rigid.py
+	convert -delay 5 -loop 0 output/rigid/rgba* output/rigid/rigid.gif
+
 
 # --- runs the test suite within the dev container (similar to test.yml), e.g.
 # USAGE:
