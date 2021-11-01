@@ -62,6 +62,8 @@ examples/rigid: checkmakeversion
 examples/rigid_gif: checkmakeversion
 	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/rigid.py
 	convert -delay 5 -loop 0 output/rigid/rgba* output/rigid/rigid.gif
+examples/keyframing: checkmakeversion
+	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/keyframing.py
 
 # Generate rigid and move to LASR data folder
 # replace '../lasr/' with path to lasr
