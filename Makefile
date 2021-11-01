@@ -61,17 +61,9 @@ examples/rigid: checkmakeversion
 # install imagemagick with $ sudo apt-get install imagemagick
 examples/rigid_gif: checkmakeversion
 	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/rigid.py
-	convert -delay 5 -loop 0 output/rigid/rgba* output/rigid/rigid.gif
+	convert -delay 5 -loop 0 output/rigid/rgba/* output/rigid/rgba/rigid.gif
 examples/keyframing: checkmakeversion
 	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/keyframing.py
-
-# Generate rigid and move to LASR data folder
-# replace '../lasr/' with path to lasr
-examples/rigid_lasr: checkmakeversion
-	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/rigid.py
-	cp output/rigid/segmentation* ../lasr/database/DAVIS/Annotations/Full-Resolution/rigid/
-	cp output/rigid/rgba* ../lasr/database/DAVIS/JPEGImages/Full-Resolution/rigid/
-
 
 # --- runs the test suite within the dev container (similar to test.yml), e.g.
 # USAGE:
