@@ -61,7 +61,10 @@ examples/rigid: checkmakeversion
 # install imagemagick with $ sudo apt-get install imagemagick
 examples/rigid_gif: checkmakeversion
 	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/rigid.py
-	convert -delay 5 -loop 0 output/rigid/rgba/* output/rigid/rgba/rigid.gif
+	convert -delay 5 -loop 0 output/bouncing_cube/rgba/*.png output/bouncing_cube/rgba/rigid.gif
+examples/torus: checkmakeversion
+	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/torus.py
+	convert -delay 5 -loop 0 output/torus/rgba/*.png output/torus/rgba/torus.gif
 examples/keyframing: checkmakeversion
 	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/keyframing.py
 
