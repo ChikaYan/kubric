@@ -55,6 +55,22 @@ examples/katr: checkmakeversion
 	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/katr.py
 examples/shapenet: checkmakeversion
 	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/shapenet.py
+examples/proc_texture: checkmakeversion
+	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/proc_texture.py
+examples/rigid: checkmakeversion
+	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/rigid.py
+# Make gif of rendered images for rigid
+# install imagemagick with $ sudo apt-get install imagemagick
+examples/rigid_gif: checkmakeversion
+	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/rigid.py
+	convert -delay 5 -loop 0 output/bouncing_cube/rgba/*.png output/bouncing_cube/rgba/rigid.gif
+examples/torus: checkmakeversion
+	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/torus.py
+	convert -delay 5 -loop 0 output/torus/rgba/*.png output/torus/rgba/torus.gif
+examples/keyframing: checkmakeversion
+	docker run --rm --interactive --user `id -u`:`id -g` --volume `pwd`:/kubric kubricdockerhub/kubruntudev python3 examples/keyframing.py
+
+
 
 # --- runs the test suite within the dev container (similar to test.yml), e.g.
 # USAGE:
