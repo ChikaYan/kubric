@@ -26,7 +26,9 @@ import random
 logging.basicConfig(level="INFO")  # < CRITICAL, ERROR, WARNING, INFO, DEBUG
 
 ROT_CAM = False
-OBJNAME = 'textured_cube'
+OBJNAME = 'moving_cube'
+POSITION = (0,0,1) #(0,0,0.2)
+VELOCITY = (0.5,0,-1) # (4,-4,0) 
 
 random.seed(0)
 
@@ -44,21 +46,19 @@ scene += kb.DirectionalLight(name="sun", position=(-1, -0.5, 3), look_at=(0, 0, 
 scene.camera = kb.PerspectiveCamera(name="camera", position=(2, -2, 4), look_at=(0, 0, 0))
 
 
-velocity = np.array([2, 0, -1])
 # color = kb.random_hue_color()
 # input(color)
 color = kb.Color(r=1, g=0.1, b=0.1, a=1.0)
 # quaternion = [0.871342, 0.401984, -0.177436, 0.218378]
 material = kb.PrincipledBSDFMaterial(color=color)
-cube = kb.Cube(name='cube', scale=0.3, velocity=velocity, angular_velocity=[0,0,0], position=(0, 0, 0), mass=0.2, restitution=1, material=material, friction=1, segmentation_id=2)
+cube = kb.Cube(name='cube', scale=0.3, velocity=VELOCITY, angular_velocity=[0,0,0], position=POSITION, mass=0.2, restitution=1, material=material, friction=1, segmentation_id=2)
 # segmentation id doesn't seem to be working -- the segmentation mask still uses object id
 
 
 
 bpy_scene = bpy.context.scene
 cube.material = kb.PrincipledBSDFMaterial(name="material")
-cube.material.metallic = 0
-cube.material.specular = 1
+cube.material.metallic = random.random()
 cube.material.roughness = random.random()**0.2
 scene += cube
 
@@ -66,45 +66,10 @@ mat = bpy_scene.objects[f"cube"].active_material
 tree = mat.node_tree
 
 mat_node = tree.nodes["Principled BSDF"]
-ramp_node = tree.nodes.new(type="ShaderNodeValToRGB")
-tex_node = tree.nodes.new(type="ShaderNodeTexNoise")
-scaling_node = tree.nodes.new(type="ShaderNodeMapping")
-rotation_node = tree.nodes.new(type="ShaderNodeMapping")
-vector_node = tree.nodes.new(type="ShaderNodeNewGeometry")
+texImage = mat.node_tree.nodes.new('ShaderNodeTexImage')
+texImage.image = bpy.data.images.load('examples/tex/tex.jpg')
 
-tree.links.new(vector_node.outputs["Position"], rotation_node.inputs["Vector"])
-tree.links.new(rotation_node.outputs["Vector"], scaling_node.inputs["Vector"])
-tree.links.new(scaling_node.outputs["Vector"], tex_node.inputs["Vector"])
-tree.links.new(tex_node.outputs["Fac"], ramp_node.inputs["Fac"])
-tree.links.new(ramp_node.outputs["Color"], mat_node.inputs["Base Color"])
-
-rotation_node.inputs["Rotation"].default_value = (
-    random.random() * 3.141,
-    random.random() * 3.141,
-    random.random() * 3.141,
-)
-
-scaling_node.inputs["Scale"].default_value = (
-    random.random()**2 * 2.0,
-    random.random()**2 * 2.0,
-    random.random()**2 * 2.0,
-)
-
-tex_node.inputs["Roughness"].default_value = random.random()
-tex_node.inputs["Detail"].default_value = 10.0 * random.random()
-
-for i in range(random.randint(3, 6)):
-    ramp_node.color_ramp.elements.new(random.random())
-
-base_color = color
-for element in ramp_node.color_ramp.elements:
-    mult = random.random()**2
-    element.color = (
-        0.3 * random.random() + base_color.r * mult,
-        0.3 * random.random() + base_color.g * mult,
-        0.3 * random.random() + base_color.b * mult,
-        1
-    )
+tree.links.new(mat_node.inputs['Base Color'], texImage.outputs['Color'])
 
 
 scene += cube
@@ -273,11 +238,24 @@ os.makedirs(f'output/{OBJNAME}/LASR/FlowFW/Full-Resolution/{OBJNAME}',exist_ok=T
 os.makedirs(f'output/{OBJNAME}/LASR/FlowBW/Full-Resolution/{OBJNAME}',exist_ok=True)
 
 # write flows into pfm
+
+# Kubric optical forward flow format: 
+# fw[i,j,k] = [dy, dx] for pixel [j,k] from img[i] to img[i+1]
+# Kubric optical backward flow format: 
+# bw[i,j,k] = [-dy, -dx] for pixel [j,k] from img[i] to img[i-1]
+
+# VCN optical forward flow format:
+# fw[i,j,k] = [dx, dy] for pixel [256-j,k] from img[i] to img[i+1]
+# VCN optical backward flow format:
+# bw[i,j,k] = [dx, dy] for pixel [256-j,k] from img[i] to img[i-1]
 for i in range(len(fw)):
     f = fw[i,...]
-    ones = np.ones_like(f[...,:1])
-    f = np.concatenate([ones,f],-1)
-    b = np.concatenate([ones,bw[i,...]],-1)
+    ones = np.ones_like(f[...,:1])  
+    f = np.concatenate([f[...,1:], f[...,:1], ones],-1)
+    b = np.concatenate([-bw[i,...,1:],-bw[i,...,:1], ones],-1)
+
+    f = np.flip(f,0)
+    b = np.flip(b,0)
     
     write_pfm(f'output/{OBJNAME}/LASR/FlowFW/Full-Resolution/{OBJNAME}/flo-{i:05d}.pfm',f)
     write_pfm(f'output/{OBJNAME}/LASR/FlowBW/Full-Resolution/{OBJNAME}/flo-{i+1:05d}.pfm',b)
@@ -291,3 +269,6 @@ kb.file_io.write_flow_batch(frames_dict['forward_flow'], directory= f"output/{OB
                     max_write_threads=16)
 kb.file_io.write_flow_batch(frames_dict['backward_flow'], directory= f"output/{OBJNAME}/FlowBW", file_template="{:05d}.png", name="backward_flow",
                     max_write_threads=16)
+
+
+# cp -r output/moving_cube/LASR/*s/ ../lasr/database/DAVIS/
