@@ -14,6 +14,7 @@
 
 import logging
 import numpy as np
+from numpy.lib.function_base import append
 import kubric as kb
 from kubric.assets import asset_source
 from kubric.renderer.blender import Blender as KubricBlender
@@ -21,12 +22,14 @@ from kubric.simulator.pybullet import PyBullet as KubricSimulator
 import sys
 import imageio
 import bpy
+import pdb
 import random
 
 logging.basicConfig(level="INFO")  # < CRITICAL, ERROR, WARNING, INFO, DEBUG
 
-ROT_CAM = False
-OBJNAME = 'moving_cube'
+ROT_CAM = True
+ROT_RANGE = 2 * np.pi # np.pi / 4
+OBJNAME = 'test-flow'
 POSITION = (0,0,1) #(0,0,0.2)
 VELOCITY = (0.5,0,-1) # (4,-4,0) 
 
@@ -34,7 +37,7 @@ random.seed(0)
 
 # --- create scene and attach a renderer and simulator
 scene = kb.Scene(resolution=(256, 256))
-scene.frame_end = 20   # < numbers of frames to render
+scene.frame_end = 30   # < numbers of frames to render
 scene.frame_rate = 24  # < rendering framerate
 scene.step_rate = 240  # < simulation framerate
 renderer = KubricBlender(scene)
@@ -56,20 +59,18 @@ cube = kb.Cube(name='cube', scale=0.3, velocity=VELOCITY, angular_velocity=[0,0,
 
 
 
-bpy_scene = bpy.context.scene
-cube.material = kb.PrincipledBSDFMaterial(name="material")
-cube.material.metallic = random.random()
-cube.material.roughness = random.random()**0.2
-scene += cube
+# bpy_scene = bpy.context.scene
+# cube.material = kb.PrincipledBSDFMaterial(name="material")
+# cube.material.metallic = random.random()
+# cube.material.roughness = random.random()**0.2
 
-mat = bpy_scene.objects[f"cube"].active_material
-tree = mat.node_tree
+# mat = bpy_scene.objects[f"cube"].active_material
+# tree = mat.node_tree
 
-mat_node = tree.nodes["Principled BSDF"]
-texImage = mat.node_tree.nodes.new('ShaderNodeTexImage')
-texImage.image = bpy.data.images.load('examples/tex/tex.jpg')
-
-tree.links.new(mat_node.inputs['Base Color'], texImage.outputs['Color'])
+# mat_node = tree.nodes["Principled BSDF"]
+# texImage = mat.node_tree.nodes.new('ShaderNodeTexImage')
+# texImage.image = bpy.data.images.load('examples/tex/tex.jpg')
+# tree.links.new(mat_node.inputs['Base Color'], texImage.outputs['Color'])
 
 
 scene += cube
@@ -89,9 +90,6 @@ scene += cube
 # train_split, test_split = asset_source.get_test_split(fraction=0.1)
 # # textured_cube = gso.create("gs://kubric-public/GSO")
 
-# import pdb; pdb.set_trace()
-
-
 
 
 # Render cameras at the same general distance from the origin, but at
@@ -101,6 +99,9 @@ scene += cube
 #   x = r * cos(theta) * sin(phi)
 #   y = r * sin(theta) * sin(phi)
 #   z = r * cos(phi)
+
+cam_params = []
+
 if ROT_CAM:
   # Render cameras at the same general distance from the origin, but at
   # different positions.
@@ -109,12 +110,12 @@ if ROT_CAM:
   #   x = r * cos(theta) * sin(phi)
   #   y = r * sin(theta) * sin(phi)
   #   z = r * cos(phi)
-  original_camera_position = (2, -2, 4)
+  original_camera_position = scene.camera.position
   r = np.sqrt(sum(a * a for a in original_camera_position))
   phi = np.arccos(original_camera_position[2] / r) # (180 - elevation)
   theta = np.arccos(original_camera_position[0] / (r * np.sin(phi))) # azimuth
   num_phi_values_per_theta = 1
-  theta_change = (2 * np.pi) / ((scene.frame_end - scene.frame_start) / num_phi_values_per_theta)
+  theta_change = ROT_RANGE / ((scene.frame_end - scene.frame_start) / num_phi_values_per_theta)
 
   for frame in range(scene.frame_start, scene.frame_end + 1):
     i = (frame - scene.frame_start)
@@ -129,6 +130,32 @@ if ROT_CAM:
     scene.camera.look_at((0, 0, 0))
     scene.camera.keyframe_insert("position", frame)
     scene.camera.keyframe_insert("quaternion", frame)
+
+    cam_param = np.zeros([1,8])
+    quat = scene.camera.quaternion
+    cam_param[0,0] = scene.camera.focal_length
+    cam_param[0,1] = x
+    cam_param[0,2] = y
+    cam_param[0,3] = quat[3]
+    cam_param[0,4:7] = quat[:3]
+    cam_param[0,7] = z
+
+    cam_params.append(cam_param)
+
+    # pdb.set_trace()
+else:
+    x,y,z = scene.camera.position
+    cam_param = np.zeros([1,8])
+    quat = scene.camera.quaternion
+    cam_param[0,0] = scene.camera.focal_length
+    cam_param[0,1] = x
+    cam_param[0,2] = y
+    cam_param[0,3] = quat[3]
+    cam_param[0,4:7] = quat[:3]
+    cam_param[0,7] = z
+
+    for _ in range(scene.frame_end):
+        cam_params.append(cam_param)
 
 
 # --- executes the simulation (and store keyframes)
@@ -236,6 +263,10 @@ occs = np.ones(fw.shape[:-1]).astype('float32')
 import os
 os.makedirs(f'output/{OBJNAME}/LASR/FlowFW/Full-Resolution/{OBJNAME}',exist_ok=True)
 os.makedirs(f'output/{OBJNAME}/LASR/FlowBW/Full-Resolution/{OBJNAME}',exist_ok=True)
+os.makedirs(f'output/{OBJNAME}/LASR/FlowFW/Full-Resolution/r{OBJNAME}',exist_ok=True)
+os.makedirs(f'output/{OBJNAME}/LASR/FlowBW/Full-Resolution/r{OBJNAME}',exist_ok=True)
+os.makedirs(f'output/{OBJNAME}/LASR/Camera/Full-Resolution/{OBJNAME}',exist_ok=True)
+os.makedirs(f'output/{OBJNAME}/LASR/Camera/Full-Resolution/r{OBJNAME}',exist_ok=True)
 
 # write flows into pfm
 
@@ -252,7 +283,7 @@ for i in range(len(fw)):
     f = fw[i,...]
     ones = np.ones_like(f[...,:1])  
     f = np.concatenate([f[...,1:], f[...,:1], ones],-1)
-    b = np.concatenate([-bw[i,...,1:],-bw[i,...,:1], ones],-1)
+    b = np.concatenate([-bw[i,...,1:],-bw[i,...,:1], ones],-1)d
 
     f = np.flip(f,0)
     b = np.flip(b,0)
@@ -261,7 +292,15 @@ for i in range(len(fw)):
     write_pfm(f'output/{OBJNAME}/LASR/FlowBW/Full-Resolution/{OBJNAME}/flo-{i+1:05d}.pfm',b)
     write_pfm(f'output/{OBJNAME}/LASR/FlowFW/Full-Resolution/{OBJNAME}/occ-{i:05d}.pfm',np.ones_like(occs[i,...]))
     write_pfm(f'output/{OBJNAME}/LASR/FlowBW/Full-Resolution/{OBJNAME}/occ-{i+1:05d}.pfm',np.ones_like(occs[i,...]))
-    
+
+    write_pfm(f'output/{OBJNAME}/LASR/FlowFW/Full-Resolution/r{OBJNAME}/flo-{i:05d}.pfm',f)
+    write_pfm(f'output/{OBJNAME}/LASR/FlowBW/Full-Resolution/r{OBJNAME}/flo-{i+1:05d}.pfm',b)
+    write_pfm(f'output/{OBJNAME}/LASR/FlowFW/Full-Resolution/r{OBJNAME}/occ-{i:05d}.pfm',np.ones_like(occs[i,...]))
+    write_pfm(f'output/{OBJNAME}/LASR/FlowBW/Full-Resolution/r{OBJNAME}/occ-{i+1:05d}.pfm',np.ones_like(occs[i,...]))
+
+    # save camera parameters
+    np.savetxt(f'output/{OBJNAME}/LASR/Camera/Full-Resolution/{OBJNAME}/{i:05d}.txt',cam_params[i].T)
+    np.savetxt(f'output/{OBJNAME}/LASR/Camera/Full-Resolution/r{OBJNAME}/{i:05d}.txt',cam_params[i].T)
 
 # write gif
 imageio.mimsave(str(kb.as_path(f"output/{OBJNAME}/") / f"{OBJNAME}.gif"),frames_dict['rgba'])
