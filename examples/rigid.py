@@ -24,14 +24,17 @@ import imageio
 import bpy
 import pdb
 import random
+from scipy.spatial import transform
 
 logging.basicConfig(level="INFO")  # < CRITICAL, ERROR, WARNING, INFO, DEBUG
 
 ROT_CAM = True
-ROT_RANGE = 2 * np.pi # np.pi / 4
-OBJNAME = 'test-flow'
+ROT_RANGE = np.pi / 4 # 2 * np.pi # 
+OBJNAME = 'shapenet-less-rot'
 POSITION = (0,0,1) #(0,0,0.2)
 VELOCITY = (0.5,0,-1) # (4,-4,0) 
+OBJ_TYPE = 'shapenet'
+TEXTURE = False
 
 random.seed(0)
 
@@ -50,55 +53,62 @@ scene.camera = kb.PerspectiveCamera(name="camera", position=(2, -2, 4), look_at=
 
 
 # color = kb.random_hue_color()
-# input(color)
 color = kb.Color(r=1, g=0.1, b=0.1, a=1.0)
 # quaternion = [0.871342, 0.401984, -0.177436, 0.218378]
 material = kb.PrincipledBSDFMaterial(color=color)
-cube = kb.Cube(name='cube', scale=0.3, velocity=VELOCITY, angular_velocity=[0,0,0], position=POSITION, mass=0.2, restitution=1, material=material, friction=1, segmentation_id=2)
-# segmentation id doesn't seem to be working -- the segmentation mask still uses object id
 
+if OBJ_TYPE == 'cube':
+  obj = kb.Cube(name='cube', scale=0.3, velocity=VELOCITY, angular_velocity=[0,0,0], position=POSITION, mass=0.2, restitution=1, material=material, friction=1, segmentation_id=2)
+  objname = 'cube'
+  # segmentation id doesn't seem to be working -- the segmentation mask still uses object id
 
+elif OBJ_TYPE == 'torus':
+  # set up assets
+  asset_source = kb.AssetSource("examples/KuBasic")
 
-# bpy_scene = bpy.context.scene
-# cube.material = kb.PrincipledBSDFMaterial(name="material")
-# cube.material.metallic = random.random()
-# cube.material.roughness = random.random()**0.2
+  obj = asset_source.create(name="torus",
+                            asset_id='Torus', scale=0.5)
+  objname = 'torus'
+  obj.material = material # kb.PrincipledBSDFMaterial(color=kb.Color(r=1, g=0.030765511645494348, b=0.0, a=1.0), metallic=0., ior=1.25, roughness=0.7, specular=0.33)
+  obj.position = POSITION
+  obj.velocity = VELOCITY
 
-# mat = bpy_scene.objects[f"cube"].active_material
-# tree = mat.node_tree
+elif OBJ_TYPE == 'shapenet':
+  asset_source = kb.AssetSource('gs://tensorflow-graphics/public/60c9de9c410be30098c297ac/ShapeNetCore.v2')
+  ids = list(asset_source.db.loc[asset_source.db['id'].str.startswith('02691156')]['id'])
+  rng = np.random.RandomState(0)
+  asset_id = rng.choice(ids) #< e.g. 02691156_10155655850468db78d106ce0a280f87
+  obj = asset_source.create(asset_id=asset_id)
+  obj.position = POSITION
+  obj.velocity = VELOCITY
+  obj.metadata = {
+    "asset_id": obj.asset_id,
+    "category": asset_source.db[
+      asset_source.db["id"] == obj.asset_id].iloc[0]["category_name"],
+  }
+  obj.scale = 2
+  objname = obj.name
+else:
+  raise NotImplementedError
 
-# mat_node = tree.nodes["Principled BSDF"]
-# texImage = mat.node_tree.nodes.new('ShaderNodeTexImage')
-# texImage.image = bpy.data.images.load('examples/tex/tex.jpg')
-# tree.links.new(mat_node.inputs['Base Color'], texImage.outputs['Color'])
+if TEXTURE:
+  bpy_scene = bpy.context.scene
+  obj.material = kb.PrincipledBSDFMaterial(name="material")
+  obj.material.metallic = random.random()
+  obj.material.roughness = random.random()**0.2
 
+  scene += obj
 
-scene += cube
+  mat = bpy_scene.objects[objname].active_material
+  tree = mat.node_tree
 
-# # set up assets
-# asset_source = kb.AssetSource("examples/KuBasic")
+  mat_node = tree.nodes["Principled BSDF"]
+  texImage = mat.node_tree.nodes.new('ShaderNodeTexImage')
+  texImage.image = bpy.data.images.load('examples/tex/tex.jpg')
+  tree.links.new(mat_node.inputs['Base Color'], texImage.outputs['Color'])
+else:
+  scene += obj
 
-# torus = asset_source.create(name="torus",
-#                           asset_id='Torus', scale=0.5)
-# torus.material = kb.PrincipledBSDFMaterial(color=kb.Color(r=1, g=0.030765511645494348, b=0.0, a=1.0), metallic=0., ior=1.25,
-#                 roughness=0.7, specular=0.33)
-# torus.position = (0, 0, 1)
-# torus.velocity = (0.5, 0, -1)
-# scene += torus
-
-# gso = kb.AssetSource("gs://kubric-public/GSO")
-# train_split, test_split = asset_source.get_test_split(fraction=0.1)
-# # textured_cube = gso.create("gs://kubric-public/GSO")
-
-
-
-# Render cameras at the same general distance from the origin, but at
-# different positions.
-#
-# We will use spherical coordinates (r, theta, phi) to do this.
-#   x = r * cos(theta) * sin(phi)
-#   y = r * sin(theta) * sin(phi)
-#   z = r * cos(phi)
 
 cam_params = []
 
@@ -117,6 +127,8 @@ if ROT_CAM:
   num_phi_values_per_theta = 1
   theta_change = ROT_RANGE / ((scene.frame_end - scene.frame_start) / num_phi_values_per_theta)
 
+  # pdb.set_trace()
+
   for frame in range(scene.frame_start, scene.frame_end + 1):
     i = (frame - scene.frame_start)
     theta_new = (i // num_phi_values_per_theta) * theta_change + theta
@@ -133,12 +145,23 @@ if ROT_CAM:
 
     cam_param = np.zeros([1,8])
     quat = scene.camera.quaternion
+    rot = transform.Rotation.from_quat(quat)
+    inv_quat = rot.inv().as_quat()
+
+
     cam_param[0,0] = scene.camera.focal_length
     cam_param[0,1] = x
     cam_param[0,2] = y
     cam_param[0,3] = quat[3]
     cam_param[0,4:7] = quat[:3]
     cam_param[0,7] = z
+
+    # cam_param[0,0] = scene.camera.focal_length
+    # cam_param[0,1] = -x
+    # cam_param[0,2] = -y
+    # cam_param[0,3] = inv_quat[3]
+    # cam_param[0,4:7] = inv_quat[:3]
+    # cam_param[0,7] = -z
 
     cam_params.append(cam_param)
 
@@ -147,12 +170,22 @@ else:
     x,y,z = scene.camera.position
     cam_param = np.zeros([1,8])
     quat = scene.camera.quaternion
+    rot = transform.Rotation.from_quat(quat)
+    inv_quat = rot.inv().as_quat()
+
     cam_param[0,0] = scene.camera.focal_length
     cam_param[0,1] = x
     cam_param[0,2] = y
     cam_param[0,3] = quat[3]
     cam_param[0,4:7] = quat[:3]
     cam_param[0,7] = z
+
+    # cam_param[0,0] = scene.camera.focal_length
+    # cam_param[0,1] = -x
+    # cam_param[0,2] = -y
+    # cam_param[0,3] = inv_quat[3]
+    # cam_param[0,4:7] = inv_quat[:3]
+    # cam_param[0,7] = -z
 
     for _ in range(scene.frame_end):
         cam_params.append(cam_param)
@@ -283,7 +316,7 @@ for i in range(len(fw)):
     f = fw[i,...]
     ones = np.ones_like(f[...,:1])  
     f = np.concatenate([f[...,1:], f[...,:1], ones],-1)
-    b = np.concatenate([-bw[i,...,1:],-bw[i,...,:1], ones],-1)d
+    b = np.concatenate([-bw[i,...,1:],-bw[i,...,:1], ones],-1)
 
     f = np.flip(f,0)
     b = np.flip(b,0)
@@ -298,6 +331,7 @@ for i in range(len(fw)):
     write_pfm(f'output/{OBJNAME}/LASR/FlowFW/Full-Resolution/r{OBJNAME}/occ-{i:05d}.pfm',np.ones_like(occs[i,...]))
     write_pfm(f'output/{OBJNAME}/LASR/FlowBW/Full-Resolution/r{OBJNAME}/occ-{i+1:05d}.pfm',np.ones_like(occs[i,...]))
 
+for i in range(len(cam_params)):
     # save camera parameters
     np.savetxt(f'output/{OBJNAME}/LASR/Camera/Full-Resolution/{OBJNAME}/{i:05d}.txt',cam_params[i].T)
     np.savetxt(f'output/{OBJNAME}/LASR/Camera/Full-Resolution/r{OBJNAME}/{i:05d}.txt',cam_params[i].T)
