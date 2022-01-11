@@ -141,7 +141,7 @@ parser.add_argument("--background", choices=["clevr", "colored", "hdri"], defaul
 parser.add_argument("--backgrounds_split", choices=["train", "test"], default="train") # only used for hdri backgrounds
 
 # Configuration for the camera
-parser.add_argument("--camera", choices=["clevr", "katr", "random", "linear_movement", "multiview", "rotate"], default="multiview")
+parser.add_argument("--camera", choices=["clevr", "katr", "random", "linear_movement", "multiview", "rotate", "static", "rotate_repeat", "multiview_rot"], default="multiview")
 parser.add_argument("--max_camera_movement", type=float, default=4.0)
 
 # Configuration for the source of the assets
@@ -162,7 +162,7 @@ help="whether to use mov_till_no_overlap to reallocate objects")
 # parser.add_argument("--seed", type=int, default=0)
 # parser.add_argument("--job_dir", type=str, default="output/movid_multiview")
 
-parser.set_defaults(save_state=True, frame_end=200, frame_rate=60, width=512, height=512)
+parser.set_defaults(save_state=True, frame_end=100, frame_rate=60, width=512, height=512)
 FLAGS = parser.parse_args()
 
 FLAGS.objects_set = 'shapenet'
@@ -170,12 +170,13 @@ FLAGS.seed = 1
 np.random.seed(FLAGS.seed)
 FLAGS.job_dir = 'output/car'
 FLAGS.background = 'clevr'
-FLAGS.camera = 'rotate'
+FLAGS.camera = 'rotate_repeat'
 FLAGS.object_size = 5
 FLAGS.object_restitution = 1
 FLAGS.shape_name = 'car'
 FLAGS.num_static_objects = 0
 FLAGS.num_dynamic_objects = 1
+FLAGS.ncam = 4
 FLAGS.reallocate = True
 
 if FLAGS.camera == 'multiview':
@@ -200,19 +201,27 @@ if FLAGS.camera == 'multiview':
   # re-run rendering for each camera position
   # TODO: find a better approach
   icam = FLAGS.icam
-
   if icam >= ncam:
     raise IndexError
-
   FLAGS.job_dir = f'{FLAGS.job_dir}/cam_{icam}'
-elif FLAGS.camera == 'rotate':
+
+elif FLAGS.camera == 'rotate' or FLAGS.camera == 'rotate_repeat':
   # rotate camera around center
   ROT_RANGE = np.pi / 4
   r = 10
   theta = np.random.uniform(low=0, high=2 * np.pi)
   phi = np.random.uniform(low=0, high=np.pi/2)
 
-  FLAGS.job_dir = f'{FLAGS.job_dir}_rot_cam'
+  pdb.set_trace()
+
+  if FLAGS.camera == 'rotate':
+    FLAGS.job_dir = f'{FLAGS.job_dir}_rot_cam'
+  else:
+    FLAGS.job_dir = f'{FLAGS.job_dir}_rot_rep'
+elif FLAGS.camera == 'static':
+  r = 10
+  theta = np.random.uniform(low=0, high=2 * np.pi)
+  phi = np.random.uniform(low=0, high=np.pi/2)
 else:
   raise NotImplementedError
 
@@ -230,8 +239,6 @@ with open(FLAGS.job_dir + '/args.config','w') as file:
 # To load arguments:
 # with open(FLAGS.job_dir + '/args.config', 'r') as file:
 #     FLAGS.__dict__ = json.load(file)
-
-# pdb.set_trace()
 
 
 # --- Populate the scene
@@ -267,7 +274,7 @@ tree.links.new(tex_node.outputs['Color'], mat_node.inputs['Base Color'])
 map_node = tree.nodes.new('ShaderNodeMapping')
 map_node.vector_type = "TEXTURE"
 # pdb.set_trace()
-map_node.inputs['Scale'].default_value = (.01,.01,.01)
+map_node.inputs['Scale'].default_value = (.1,.1,.1)
 tree.links.new(map_node.outputs['Vector'], tex_node.inputs['Vector'])
 tex_coord = tree.nodes.new(type = 'ShaderNodeTexCoord')
 tree.links.new(tex_coord.outputs["UV"], map_node.inputs["Vector"])
@@ -310,12 +317,15 @@ if FLAGS.camera == 'multiview':
   scene.camera.position = cam_poses[icam]
   scene.camera.look_at((0, 0, 0))
 
-elif FLAGS.camera == 'rotate':
+elif FLAGS.camera == 'rotate' or FLAGS.camera == 'rotate_repeat':
   num_phi_values_per_theta = 1
   theta_change = ROT_RANGE / ((scene.frame_end - scene.frame_start) / num_phi_values_per_theta)
 
   for frame in range(scene.frame_start, scene.frame_end + 1):
     i = (frame - scene.frame_start)
+    if FLAGS.camera == 'rotate_repeat' and i >= (scene.frame_end + 1) // 2:
+      # go back in the same trajectory
+      i = scene.frame_end + 1 - i
     theta_new = (i // num_phi_values_per_theta) * theta_change + theta
 
     # These values of (x, y, z) will lie on the same sphere as the original camera.
@@ -327,7 +337,6 @@ elif FLAGS.camera == 'rotate':
     scene.camera.look_at((0, 0, 0))
     scene.camera.keyframe_insert("position", frame)
     scene.camera.keyframe_insert("quaternion", frame)
-
 else:
   raise NotImplementedError
 
