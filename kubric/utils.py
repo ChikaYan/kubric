@@ -160,6 +160,7 @@ def get_camera_info(camera, **kwargs):
       "quaternions": camera.get_values_over_time("quaternion"),
       "K": camera.intrinsics,
       "R": camera.matrix_world,
+      # get values over time only work for position and quaternion
   }
   camera_info.update(kwargs)
   return camera_info

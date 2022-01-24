@@ -162,21 +162,21 @@ help="whether to use mov_till_no_overlap to reallocate objects")
 # parser.add_argument("--seed", type=int, default=0)
 # parser.add_argument("--job_dir", type=str, default="output/movid_multiview")
 
-parser.set_defaults(save_state=True, frame_end=100, frame_rate=30, width=512, height=512)
+parser.set_defaults(save_state=True, frame_end=100, frame_rate=60, width=512, height=512)
 FLAGS = parser.parse_args()
 
 FLAGS.objects_set = 'shapenet'
 FLAGS.seed = 1
 np.random.seed(FLAGS.seed)
-FLAGS.job_dir = 'output/car_static_360'
+FLAGS.job_dir = 'output/car_90'
 FLAGS.background = 'clevr'
 FLAGS.camera = 'rotate'
 FLAGS.object_size = 5
 FLAGS.object_restitution = 1
 FLAGS.shape_name = 'car'
-FLAGS.num_static_objects = 1
-FLAGS.num_dynamic_objects = 0
-FLAGS.reallocate = False
+FLAGS.num_static_objects = 0
+FLAGS.num_dynamic_objects = 1
+FLAGS.reallocate = True
 
 if FLAGS.camera == 'multiview':
   # generate a set of camera positionsfrom upper hemisphere
@@ -227,7 +227,7 @@ elif FLAGS.camera == 'multiview_rot':
 
 elif FLAGS.camera == 'rotate' or FLAGS.camera == 'rotate_repeat':
   # rotate camera around center
-  ROT_RANGE = 2 * np.pi
+  ROT_RANGE = np.pi / 2
   r = 10
   THETA = np.random.uniform(low=0, high=2 * np.pi)
   PHI = np.random.uniform(low=0, high=np.pi/2)

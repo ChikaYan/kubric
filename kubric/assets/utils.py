@@ -64,8 +64,8 @@ def get_random_kubasic_object(
   else:
     raise ValueError(f"Unknown object set {objects_set}")
 
-  size_label, size = randomness.sample_sizes(size_strategy)
-  color_label, random_color = randomness.sample_color(color_strategy)
+  size_label, size = randomness.sample_sizes(size_strategy, rng)
+  color_label, random_color = randomness.sample_color(color_strategy, rng)
   material_name = rng.choice(["Metal", "Rubber"])
   obj = asset_source.create(name=f"{size_label} {color_label} {material_name} {shape_name}",
                             asset_id=shape_name, scale=size)
