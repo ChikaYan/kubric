@@ -26,65 +26,62 @@ from typing import List, Dict, Union
 
 
 _DESCRIPTION = """
-A simple rigid-body simulation based on the CLEVR dataset.
-The scene consists of a gray floor, four light sources, a camera, and between 
-3 and 10 random objects.
-The camera position is randomly jittered in a small area around a fixed position
+A simple rigid-body simulation with GSO objects and an HDRI background.
+The scene consists of a dome (half-sphere) onto which a random HDRI is projected, 
+which acts as background, floor and lighting.
+The scene contains between 10 and 20 random static objects, and between 1 and 3
+dynamic objects (tossed onto the others).
+The camera position is sampled randomly in a half-sphere shell around the scene
 and always points at the origin.
-The objects are randomly chosen from: 
- - one three shapes [cube, sphere, cylinder], 
- - scaled to one of two sizes [small, large], 
- - have one of two materials [rubber, metal], 
- - and one of eight colors [blue, brown, cyan, gray, green, purple, red, yellow]
 
-They are spawned without overlap in the region [(-5, -5, 1), (5, 5, 5)], and
-initialized with a random velocity from the range [(-4, -4, 0), (4, 4, 0)] 
+Static objects are spawned without overlap in the region [(-7, -7, 0), (7, 7, 10)],
+and are simulated to fall and settle before the first frame of the scene.
+Dynamic objects are spawned without overlap in the region [(-5, -5, 1), (5, 5, 5)], and
+initialized with a random velocity from the range [(-4, -4, 0), (4, 4, 0)]
 minus the position of the object to bias their trajectory towards the center of
 the scene.
 
-The scene is simulated for 2 seconds, with the physical properties of the 
-objects depending on the material:
- - metal: friction=0.4, restitution=0.3, density=2.7
- - rubber: friction=0.8, restitution=0.7, density=1.1
- 
+The scene is simulated for 2 seconds, with the physical properties of the
+objects kept at the default of friction=0.5, restitution=0.5 and density=1.0.
+
 The dataset contains approx 10k videos rendered at 256x256 pixels and 12fps.
 
-Each sample contains the following video-format data: 
+Each sample contains the following video-format data:
 (s: sequence length, h: height, w: width)
 
-- "video": (s, h, w, 3) [uint8]  
-  The RGB frames.  
+- "video": (s, h, w, 3) [uint8]
+  The RGB frames.
 - "segmentations": (s, h, w, 1) [uint8]
-  Instance segmentation as per-pixel object-id with background=0. 
+  Instance segmentation as per-pixel object-id with background=0.
   Note: because of this the instance IDs used here are one higher than their
-  corresponding index in sample["instances"]. 
+  corresponding index in sample["instances"].
 - "depth": (s, h, w, 1) [uint16]
   Distance of each pixel from the center of the camera.
-  (Note this is different from the z-value sometimes used, which measures the 
+  (Note this is different from the z-value sometimes used, which measures the
   distance to the camera *plane*.)
-  The values are stored as uint16 and span the range specified in 
-  sample["metadata"]["depth_range"]. To convert them back to world-units 
-  use:  
+  The values are stored as uint16 and span the range specified in
+  sample["metadata"]["depth_range"]. To convert them back to world-units
+  use:
     minv, maxv = sample["metadata"]["depth_range"]
     depth = sample["depth"] / 65535 * (maxv - minv) + minv
 - "forward_flow": (s, h, w, 2) [uint16]
   Forward optical flow in the form (delta_row, delta_column).
-  The values are stored as uint16 and span the range specified in 
-  sample["metadata"]["forward_flow_range"]. To convert them back to pixels use:  
+  The values are stored as uint16 and span the range specified in
+  sample["metadata"]["forward_flow_range"]. To convert them back to pixels use:
     minv, maxv = sample["metadata"]["forward_flow_range"]
     depth = sample["forward_flow"] / 65535 * (maxv - minv) + minv
 - "backward_flow": (s, h, w, 2) [uint16]
   Backward optical flow in the form (delta_row, delta_column).
-  The values are stored as uint16 and span the range specified in 
-  sample["metadata"]["backward_flow_range"]. To convert them back to pixels use:  
+  The values are stored as uint16 and span the range specified in
+  sample["metadata"]["backward_flow_range"]. To convert them back to pixels use:
     minv, maxv = sample["metadata"]["backward_flow_range"]
     depth = sample["backward_flow"] / 65535 * (maxv - minv) + minv
 - "normal": (s, h, w, 3) [uint16]
-  Surface normals for each pixel in world coordinates. 
+  Surface normals for each pixel in world coordinates.
 - "object_coordinates": (s, h, w, 3) [uint16]
   Object coordinates encode the position of each point relative to the objects
-  bounding box (i.e. back-left-top (X=Y=Z=1) corner is white, 
-  while front-right-bottom (X=Y=Z=0) corner is black.)  
+  bounding box (i.e. back-left-top (X=Y=Z=1) corner is white,
+  while front-right-bottom (X=Y=Z=0) corner is black.)
 
 Additionally there is rich instance-level information in sample["instances"]:
 - "mass": [float32]
@@ -100,29 +97,30 @@ Additionally there is rich instance-level information in sample["instances"]:
 - "velocities": (s, 3) [float32]
   Velocity of the object for each frame.
 - "angular_velocities": (s, 3) [float32]
-  Angular velocity of the object for each frame. 
+  Angular velocity of the object for each frame.
 - "bboxes_3d": (s, 8, 3) [float32]
   World-space corners of the 3D bounding box around the object.
 - "image_positions": (s, 2) [float32]
-  Normalized (0, 1) image-space (2D) coordinates of the center of mass of the 
-  object for each frame. 
+  Normalized (0, 1) image-space (2D) coordinates of the center of mass of the
+  object for each frame.
 - "bboxes": (None, 4) [float32]
-   The normalized image-space (2D) coordinates of the bounding box 
+   The normalized image-space (2D) coordinates of the bounding box
    [ymin, xmin, ymax, xmax] for all the frames in which the object is visible
    (as specified in bbox_frames).
 - "bbox_frames": (None,) [int]
-   A list of all the frames the object is visible. 
+   A list of all the frames the object is visible.
 - "visibility": (s,) [uint16]
   Visibility of the object in number of pixels for each frame (can be 0).
-- "shape_label": ["cube", "cylinder", "sphere"]
-- "size_label": ["small", "large"]
-- "color": (3,) [float32]
-  Color of the object in RGB.
-- "color_label": ["blue", "brown", "cyan", "gray", "green", "purple", "red", "yellow"]
-- "material_label": ["metal", "rubber"]
+- "category": ["Action Figures", "Bag", "Board Games", 
+               "Bottles and Cans and Cups", "Camera", "Car Seat", 
+               "Consumer Goods", "Hat", "Headphones", "Keyboard", "Legos", 
+               "Media Cases", "Mouse", "None", "Shoe", "Stuffed Toys", "Toys"]
+- "scale": float between 0.75 and 3.0
+- "is_dynamic": bool indicating whether (at the start of the scene) the object 
+                is sitting on the floor or is being tossed.  
 
-Information about the camera in sample["camera"] 
-(given for each frame eventhough the camera is static, so as to stay 
+Information about the camera in sample["camera"]
+(given for each frame eventhough the camera is static, so as to stay
 consistent with other variants of the dataset):
 
 - "focal_length": [float32]
@@ -135,7 +133,7 @@ consistent with other variants of the dataset):
 And finally information about collision events in sample["events"]["collisions"]:
 
 - "instances": (2,)[uint16]
-  Indices of the two instance between which the collision happened. 
+  Indices of the two instance between which the collision happened.
   Note that collisions with the floor/background objects are marked with 65535
 - "frame": tf.int32,
   Frame in which the collision happenend.
@@ -153,7 +151,7 @@ _CITATION = "TODO: kubric paper"
 
 
 @dataclasses.dataclass
-class MoviAConfig(tfds.core.BuilderConfig):
+class MoviDConfig(tfds.core.BuilderConfig):
   """"Configuration for Multi-Object Video (MOVid) dataset."""
   height: int = 256
   width: int = 256
@@ -163,40 +161,39 @@ class MoviAConfig(tfds.core.BuilderConfig):
   test_split_paths: Dict[str, str] = dataclasses.field(default_factory=dict)
 
 
-class MoviA(tfds.core.BeamBasedBuilder):
-  """DatasetBuilder for MOVi-A dataset."""
+class MoviD(tfds.core.BeamBasedBuilder):
+  """DatasetBuilder for MOVi-D dataset."""
   VERSION = tfds.core.Version("1.0.0")
   RELEASE_NOTES = {
       "1.0.0": "initial release",
   }
 
   BUILDER_CONFIGS = [
-      MoviAConfig(
+      MoviDConfig(
           name="256x256",
           description="Full resolution of 256x256",
           height=256,
           width=256,
           validation_ratio=0.025,
-          # train_val_path="/usr/local/google/home/klausg/movi_tmp",
-          train_val_path="gs://research-brain-kubric-xgcp/jobs/movi_a_regen_10k/",
+          train_val_path="gs://research-brain-kubric-xgcp/jobs/movi_d_regen_10k/",
           test_split_paths={
-              # "test_all_same": "gs://research-brain-kubric-xgcp/jobs/movid_a_regen_all_same",
+              "test": "gs://research-brain-kubric-xgcp/jobs/movi_d_test_regen_1k/",
           }
       ),
-      MoviAConfig(
+      MoviDConfig(
           name="128x128",
           description="Downscaled to 128x128",
           height=128,
           width=128,
           validation_ratio=0.025,
-          # train_val_path="/usr/local/google/home/klausg/movi_tmp",
-          train_val_path="gs://research-brain-kubric-xgcp/jobs/movi_a_regen_10k/",
+          train_val_path="gs://research-brain-kubric-xgcp/jobs/movi_d_regen_10k/",
           test_split_paths={
-              # "test_all_same": "gs://research-brain-kubric-xgcp/jobs/movid_a_regen_all_same",
+              "test": "gs://research-brain-kubric-xgcp/jobs/movi_d_test_regen_1k/",
           }
       ),
   ]
 
+                
   def _info(self) -> tfds.core.DatasetInfo:
     """Returns the dataset metadata."""
 
@@ -204,19 +201,18 @@ class MoviA(tfds.core.BeamBasedBuilder):
     w = self.builder_config.width
     s = self.builder_config.num_frames
 
-    def get_movid_a_instance_features(seq_length: int):
+    def get_movi_d_instance_features(seq_length: int):
       features = get_instance_features(seq_length)
       features.update({
-          "shape_label": tfds.features.ClassLabel(
-              names=["cube", "cylinder", "sphere"]),
-          "size_label": tfds.features.ClassLabel(
-              names=["small", "large"]),
-          "color": tfds.features.Tensor(shape=(3,), dtype=tf.float32),
-          "color_label": tfds.features.ClassLabel(
-              names=["blue", "brown", "cyan", "gray",
-                     "green", "purple", "red", "yellow"]),
-          "material_label": tfds.features.ClassLabel(
-              names=["metal", "rubber"]),
+          "category": tfds.features.ClassLabel(
+              names=["Action Figures", "Bag", "Board Games", 
+                     "Bottles and Cans and Cups", "Camera", 
+                     "Car Seat", "Consumer Goods", "Hat", 
+                     "Headphones", "Keyboard", "Legos", 
+                     "Media Cases", "Mouse", "None", "Shoe", 
+                     "Stuffed Toys", "Toys"]),
+          "scale": tf.float32,
+          "is_dynamic": tf.bool,
       })
       return features
 
@@ -239,7 +235,7 @@ class MoviA(tfds.core.BeamBasedBuilder):
                                                             dtype=tf.float32),
             },
             "instances": tfds.features.Sequence(
-                feature=get_movid_a_instance_features(seq_length=s)),
+                feature=get_movi_d_instance_features(seq_length=s)),
             "camera": get_camera_features(s),
             "events": get_events_features(),
             # -----
@@ -307,14 +303,11 @@ class MoviA(tfds.core.BeamBasedBuilder):
     def _process_example(video_dir):
       key, result, metadata = load_scene_directory(video_dir, target_size)
 
-      # add MOVid-A specific instance information:
+      # add MOVid-D specific instance information:
       for i, obj in enumerate(result["instances"]):
-        obj["shape_label"] = metadata["instances"][i]["shape"]
-        obj["size_label"] = metadata["instances"][i]["size_label"]
-        obj["material_label"] = metadata["instances"][i]["material"]
-        obj["color"] = np.array(metadata["instances"][i]["color"],
-                                dtype=np.float32)
-        obj["color_label"] = metadata["instances"][i]["color_label"]
+        obj["category"] = metadata["instances"][i]["category"]
+        obj["scale"] = metadata["instances"][i]["scale"]
+        obj["is_dynamic"] = metadata["instances"][i]["is_dynamic"]
 
       return key, result
 
@@ -611,4 +604,3 @@ def read_tiff(filename: PathLike) -> np.ndarray:
   if img.ndim == 2:
     img = img[:, :, None]
   return img
-

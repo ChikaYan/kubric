@@ -91,7 +91,7 @@ class Blender(core.View):
 
     # the ray-tracing engine is set here because it affects the availability of some features
     bpy.context.scene.render.engine = "CYCLES"
-    self.use_gpu = os.getenv("KUBRIC_USE_GPU", 'False').lower() in ('true', '1', 't')
+    self.use_gpu = os.getenv("KUBRIC_USE_GPU", "False").lower() in ("true", "1", "t")
 
     blender_utils.activate_render_passes(normal=True, optical_flow=True, segmentation=True, uv=True)
     self._setup_scene_shading()
@@ -309,9 +309,9 @@ class Blender(core.View):
     A dictionary with one entry for each return layer. By default:
         - "rgba": shape = (height, width, 4)
         - "segmentation": shape = (height, width, 1) (int)
-        - "backward_flow": shape = (height, width, 2)
-        - "forward_flow": shape = (height, width, 2)
-        - "depth": shape = (height, width, 1)
+        - "backward_flow": shape = (height, width, 2) (float32)
+        - "forward_flow": shape = (height, width, 2) (float32)
+        - "depth": shape = (height, width, 1) (float32)
         - "object_coordinates": shape = (height, width, 3) (uint16)
         - "normal": shape = (height, width, 3) (uint16)
     """
