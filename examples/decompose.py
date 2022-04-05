@@ -148,19 +148,21 @@ STATIC_OBJS = [
 
 DYNAMIC_OBJS = [
     {
-        "asset_id": "02958343_f6906412622f5853413113c385698bb2",
-        "scale": 4, "object_restitution": 0, "position": (-6.2, -5, 1), "quaternion": (1, 1, 0.15, 0.15)
+        "asset_id": "02958343_d4d7d596cf08754e2dfac2620a0cf07b",
+        "scale": 4, "object_restitution": 0.9, "position": (-1, -5, 4),
+        "init_velocity": (-1, 3, -1), "object_friction": 0
     },
     {
-        "asset_id": "02958343_2928f77d711bf46eaa69dfdc5532bb13",
-        "scale": 4, "object_restitution": 0, "position": (7, 3/2, 1), "quaternion": (1, 1, -0.5, -0.5)
+        "asset_id": "02958343_1a56d596c77ad5936fa87a658faf1d26",
+        "scale": 4, "object_restitution": 0.9, "position": (4, 11, 4),
+        "init_velocity": (-2, -6, 0), "quaternion": (1, 1, -0.5, -0.5), "object_friction": 0
     },
     {
-        "asset_id": "02958343_9752827fb7788c2d5c893a899536502e",
-        "scale": 4, "object_restitution": 0, "position": (10, -3.5, 1), "quaternion": (1, 1, 0.5, 0.5)
+        "asset_id": "02958343_5876e90c8f0b15e112ed57dd1bc82aa3",
+        "scale": 4, "object_restitution": 0.9, "position": (-10, 10, 1),
+        "init_velocity": (6, -6, -4), "quaternion": (0.2, 0.2, -0.67, -0.67), "object_friction": 0
     },
 ]
-
 
 
 def euler_to_xyz(r, theta, phi):
@@ -396,8 +398,7 @@ def add_random_shapnet_object(
     object_restitution=FLAGS.object_restitution,
     init_velocity=(0, 0, 0),
     reallocate=False,
-    static=False,
-):
+    static=False,):
   global OBJ_ID
   obj = asset_source.create(asset_id=asset_id, name=f'obj_{OBJ_ID}')
   OBJ_ID += 1
@@ -427,12 +428,15 @@ def add_random_shapnet_object(
 
 
 logging.info("Placing static objects:")
+for params in STATIC_OBJS:
+  obj = add_random_shapnet_object(rng=rng, **params)
+  
 # obj = add_random_shapnet_object(rng=rng, asset_id="02958343_f6906412622f5853413113c385698bb2",
 #                                 scale=4, object_restitution=0, position=(-6.2, -5, 1), quaternion=(1, 1, 0.15, 0.15))
-obj = add_random_shapnet_object(rng=rng, asset_id="02958343_2928f77d711bf46eaa69dfdc5532bb13",
-                                scale=4, object_restitution=0, position=(7, 3/2, 1), quaternion=(1, 1, -0.5, -0.5))
-obj = add_random_shapnet_object(rng=rng, asset_id="02958343_9752827fb7788c2d5c893a899536502e",
-                                scale=4, object_restitution=0, position=(10, -3.5, 1), quaternion=(1, 1, 0.5, 0.5))
+# obj = add_random_shapnet_object(rng=rng, asset_id="02958343_2928f77d711bf46eaa69dfdc5532bb13",
+#                                 scale=4, object_restitution=0, position=(7, 3/2, 1), quaternion=(1, 1, -0.5, -0.5))
+# obj = add_random_shapnet_object(rng=rng, asset_id="02958343_9752827fb7788c2d5c893a899536502e",
+#                                 scale=4, object_restitution=0, position=(10, -3.5, 1), quaternion=(1, 1, 0.5, 0.5))
 
 # # chairs
 # obj = add_random_shapnet_object(rng=rng, asset_id="03001627_653c0f8b819872b41a6af642cfc1a2bc",
@@ -456,27 +460,35 @@ key_frame = 0
 # Add dynamic objects
 if not STATIC:
   logging.info("Placing dynamic objects:")
-  obj = add_random_shapnet_object(rng=rng, asset_id='02958343_d4d7d596cf08754e2dfac2620a0cf07b', scale=4,
-                                  object_restitution=0.9, position=(-1, -5, 4), init_velocity=(-1, 3, -1), object_friction=0)
-  obj = add_random_shapnet_object(rng=rng, asset_id="02958343_1a56d596c77ad5936fa87a658faf1d26", scale=4, object_restitution=0.9, position=(
-      4, 11, 4), init_velocity=(-2, -6, 0), quaternion=(1, 1, 3, 3), object_friction=0)
-  obj = add_random_shapnet_object(rng=rng, asset_id="02958343_5876e90c8f0b15e112ed57dd1bc82aa3", scale=4, object_restitution=0.9,
-                                  position=(-10, 10, 1), init_velocity=(6, -6, -4), quaternion=(0.2, 0.2, -0.67, -0.67), object_friction=0)
+  dynamic_objs = []
+  for params in DYNAMIC_OBJS:
+    obj = add_random_shapnet_object(rng=rng, **params)
+    dynamic_objs.append(obj)
+  # obj = add_random_shapnet_object(rng=rng, asset_id='02958343_d4d7d596cf08754e2dfac2620a0cf07b', scale=4,
+  #                                 object_restitution=0.9, position=(-1, -5, 4), init_velocity=(-1, 3, -1), object_friction=0)
+  # obj = add_random_shapnet_object(rng=rng, asset_id="02958343_1a56d596c77ad5936fa87a658faf1d26", scale=4, object_restitution=0.9, position=(
+  #     4, 11, 4), init_velocity=(-2, -6, 0), quaternion=(1, 1, 3, 3), object_friction=0)
+  # obj = add_random_shapnet_object(rng=rng, asset_id="02958343_5876e90c8f0b15e112ed57dd1bc82aa3", scale=4, object_restitution=0.9,
+  #                                 position=(-10, 10, 1), init_velocity=(6, -6, -4), quaternion=(0.2, 0.2, -0.67, -0.67), object_friction=0)
+  
   if RENDER_TEST:
     if TEST_FREEZE_FRAME < key_frame:
       simulator.run(frame_start=0, frame_end=TEST_FREEZE_FRAME)
-      obj.static = True
+      for obj in dynamic_objs:
+        obj.static = True
     else:
       simulator.run(frame_start=0, frame_end=key_frame)
       # obj.velocity = (1, -2, 0)
       simulator.run(frame_start=key_frame, frame_end=TEST_FREEZE_FRAME)
-      obj.static = True
+      for obj in dynamic_objs:
+        obj.static = True
     # replace key_frame for rendering of rest of frames
     key_frame = TEST_FREEZE_FRAME
 
   else:
-    # simulator.run(frame_start=0, frame_end=key_frame)
-    # obj.velocity = (1, -2, 0)
+    if key_frame > 0:
+      simulator.run(frame_start=0, frame_end=key_frame)
+      obj.velocity = (1, -2, 0)
     pass
 
 
