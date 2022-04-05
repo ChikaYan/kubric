@@ -90,13 +90,26 @@ parser.add_argument("--waypoint_seed", type=int, default=0,
 # parser.add_argument("--seed", type=int, default=0)
 # parser.add_argument("--job_dir", type=str, default="output/movid_multiview")
 
-RUN_RENDERING = False
+RUN_RENDERING = True
 STATIC = False
 
 FRAME_END = 200
 
-parser.set_defaults(save_state=True, frame_end=FRAME_END,
-                    frame_rate=30, width=512, height=512)
+# render test mode: freeze scene at specified frame and render with extra camera
+RENDER_TEST = True
+TEST_FREEZE_FRAME = 99 if RENDER_TEST else 0
+TEST_NUM_FRAME = 100
+TEST_CAMERA = 'circle'
+TEST_CAM_R = 2.5
+
+parser.set_defaults(
+    save_state=True,
+    frame_start=TEST_FREEZE_FRAME + 1,
+    frame_end=FRAME_END if not RENDER_TEST else TEST_NUM_FRAME + TEST_FREEZE_FRAME,
+    frame_rate=30,
+    width=512,
+    height=512
+)
 FLAGS = parser.parse_args()
 
 FLAGS.objects_set = 'shapenet'
@@ -107,6 +120,8 @@ if STATIC:
   FLAGS.job_dir += 'static'
 else:
   FLAGS.job_dir += 'dynamic'
+if RENDER_TEST:
+  FLAGS.job_dir += '_test'
 FLAGS.background = 'clevr'
 FLAGS.camera = 'rotate_random'
 FLAGS.waypoint_seed = 123
@@ -115,6 +130,37 @@ FLAGS.object_friction = 0
 FLAGS.object_restitution = 1
 FLAGS.shape_name = 'car'
 FLAGS.reallocate = True
+
+STATIC_OBJS = [
+    {
+        "asset_id": "02958343_f6906412622f5853413113c385698bb2",
+        "scale": 4, "object_restitution": 0, "position": (-6.2, -5, 1), "quaternion": (1, 1, 0.15, 0.15)
+    },
+    {
+        "asset_id": "02958343_2928f77d711bf46eaa69dfdc5532bb13",
+        "scale": 4, "object_restitution": 0, "position": (7, 3/2, 1), "quaternion": (1, 1, -0.5, -0.5)
+    },
+    {
+        "asset_id": "02958343_9752827fb7788c2d5c893a899536502e",
+        "scale": 4, "object_restitution": 0, "position": (10, -3.5, 1), "quaternion": (1, 1, 0.5, 0.5)
+    },
+]
+
+DYNAMIC_OBJS = [
+    {
+        "asset_id": "02958343_f6906412622f5853413113c385698bb2",
+        "scale": 4, "object_restitution": 0, "position": (-6.2, -5, 1), "quaternion": (1, 1, 0.15, 0.15)
+    },
+    {
+        "asset_id": "02958343_2928f77d711bf46eaa69dfdc5532bb13",
+        "scale": 4, "object_restitution": 0, "position": (7, 3/2, 1), "quaternion": (1, 1, -0.5, -0.5)
+    },
+    {
+        "asset_id": "02958343_9752827fb7788c2d5c893a899536502e",
+        "scale": 4, "object_restitution": 0, "position": (10, -3.5, 1), "quaternion": (1, 1, 0.5, 0.5)
+    },
+]
+
 
 
 def euler_to_xyz(r, theta, phi):
@@ -177,14 +223,12 @@ elif FLAGS.camera == 'rotate_random':
   PHI_RANGE = [1, 1.2]
   N_WAYPOINTS = 10
 
-
   rng = np.random.default_rng(FLAGS.waypoint_seed)
   thetas = rng.uniform(THETA_RANGE[0], THETA_RANGE[1], N_WAYPOINTS)
   phis = rng.uniform(PHI_RANGE[0], PHI_RANGE[1], N_WAYPOINTS)
   camera_waypoints = []
   for i in range(N_WAYPOINTS):
     camera_waypoints.append({'rot': [thetas[i], phis[i]]})
-
 
   for i in range(len(camera_waypoints)):
     camera_waypoints[i]['frame'] = int(
@@ -278,7 +322,7 @@ scene.camera = kb.PerspectiveCamera(focal_length=35., sensor_width=32)
 scene.camera.position = euler_to_xyz(r, THETA, PHI)
 scene.camera.look_at((0, 0, 0))
 
-if FLAGS.camera.startswith('rotate'):
+if FLAGS.camera.startswith('rotate') and not RENDER_TEST:
   for i, waypoint in enumerate(camera_waypoints):
     if i == 0:
       continue
@@ -305,6 +349,30 @@ if FLAGS.camera.startswith('rotate'):
       scene.camera.look_at((0, 0, 0))
       scene.camera.keyframe_insert("position", frame)
       scene.camera.keyframe_insert("quaternion", frame)
+elif RENDER_TEST:
+  # change camera path to be a circle around center of original camera waypoints
+  center_rot = np.average([waypoint['rot']
+                          for waypoint in camera_waypoints], axis=0)
+  center_coord = [
+      r * np.cos(center_rot[0]) * np.sin(center_rot[1]),
+      r * np.sin(center_rot[0]) * np.sin(center_rot[1]),
+      r * np.cos(center_rot[1])
+  ]
+
+  angles = np.linspace(0, 2 * np.pi, scene.frame_end + 1 - scene.frame_start)
+
+  # pdb.set_trace()
+
+  for i, frame in enumerate(range(scene.frame_start, scene.frame_end + 1)):
+    x = center_coord[0]  # + TEST_CAM_R * np.cos(angles[i])
+    y = center_coord[1] + TEST_CAM_R * np.sin(angles[i])
+    z = center_coord[2] + TEST_CAM_R * np.cos(angles[i])
+
+    scene.camera.position = (x, y, z)
+    scene.camera.look_at((0, 0, 0))
+    scene.camera.keyframe_insert("position", frame)
+    scene.camera.keyframe_insert("quaternion", frame)
+
 else:
   raise NotImplementedError
 
@@ -335,14 +403,6 @@ def add_random_shapnet_object(
   OBJ_ID += 1
   obj.scale = scale
   obj.position = position
-  # if FLAGS.shape_name == 'car_random':
-  #   ids = list(asset_source.db.loc[asset_source.db['id'].str.startswith('02958343')]['id'])
-  #   asset_id = rng.choice(ids)
-  #   obj = asset_source.create(asset_id=asset_id)
-  #   obj.scale = FLAGS.object_size
-  #   obj.quaternion = kb.Quaternion(axis=[1,0,0], degrees=90)
-  # else:
-  #   raise NotImplementedError(f'ShapeNet object name {FLAGS.shape_name} not implemented')
 
   if object_friction is not None:
     obj.friction = object_friction
@@ -363,27 +423,12 @@ def add_random_shapnet_object(
   else:
     obj.metadata["is_dynamic"] = True
 
-  # mat = bpy_scene.objects[obj.name].active_material
-  # tree = mat.node_tree
-  # # mat_node = tree.nodes["Principled BSDF"]
-  # # mat_node.inputs['Specular'].default_value = 0.
-
-  # material_output = tree.nodes.get('Material Output')
-  # diffuse = tree.nodes.new("ShaderNodeBsdfDiffuse")
-
-  # diffuse.inputs['Color'].default_value[0] = tree.nodes["Principled BSDF"].inputs['Base Color'].default_value[0]
-  # diffuse.inputs['Color'].default_value[1] = tree.nodes["Principled BSDF"].inputs['Base Color'].default_value[1]
-  # diffuse.inputs['Color'].default_value[2] = tree.nodes["Principled BSDF"].inputs['Base Color'].default_value[2]
-  # diffuse.inputs['Roughness'].default_value = 0.
-  # tree.links.new(material_output.inputs[0], diffuse.outputs[0])
-
-  # tree.nodes.remove(tree.nodes.get('Principled BSDF'))
-
   return obj
 
 
 logging.info("Placing static objects:")
-# obj = add_random_shapnet_object(rng=rng, asset_id="02958343_f6906412622f5853413113c385698bb2", scale=4, object_restitution=0, position=(-6.2,-5,1), quaternion=(1,1,0.15,0.15))
+# obj = add_random_shapnet_object(rng=rng, asset_id="02958343_f6906412622f5853413113c385698bb2",
+#                                 scale=4, object_restitution=0, position=(-6.2, -5, 1), quaternion=(1, 1, 0.15, 0.15))
 obj = add_random_shapnet_object(rng=rng, asset_id="02958343_2928f77d711bf46eaa69dfdc5532bb13",
                                 scale=4, object_restitution=0, position=(7, 3/2, 1), quaternion=(1, 1, -0.5, -0.5))
 obj = add_random_shapnet_object(rng=rng, asset_id="02958343_9752827fb7788c2d5c893a899536502e",
@@ -417,9 +462,22 @@ if not STATIC:
       4, 11, 4), init_velocity=(-2, -6, 0), quaternion=(1, 1, 3, 3), object_friction=0)
   obj = add_random_shapnet_object(rng=rng, asset_id="02958343_5876e90c8f0b15e112ed57dd1bc82aa3", scale=4, object_restitution=0.9,
                                   position=(-10, 10, 1), init_velocity=(6, -6, -4), quaternion=(0.2, 0.2, -0.67, -0.67), object_friction=0)
+  if RENDER_TEST:
+    if TEST_FREEZE_FRAME < key_frame:
+      simulator.run(frame_start=0, frame_end=TEST_FREEZE_FRAME)
+      obj.static = True
+    else:
+      simulator.run(frame_start=0, frame_end=key_frame)
+      # obj.velocity = (1, -2, 0)
+      simulator.run(frame_start=key_frame, frame_end=TEST_FREEZE_FRAME)
+      obj.static = True
+    # replace key_frame for rendering of rest of frames
+    key_frame = TEST_FREEZE_FRAME
 
-  # simulator.run(frame_start=0, frame_end=key_frame)
-  # obj.velocity = (1,-2,0)
+  else:
+    # simulator.run(frame_start=0, frame_end=key_frame)
+    # obj.velocity = (1, -2, 0)
+    pass
 
 
 if FLAGS.save_state:
@@ -479,10 +537,11 @@ if RUN_RENDERING:
       "metadata_kubric": kb.get_scene_metadata(scene, **scene_metadata),
       "camera": kb.get_camera_info(scene.camera),
       "instances": kb.get_instance_info(scene, assets_subset=visible_foreground_assets),
+      "test_freeze_frame": TEST_FREEZE_FRAME
   })
-  kb.write_json(filename=output_dir / "events.json", data={
-      "collisions":  kb.process_collisions(collisions, scene, assets_subset=visible_foreground_assets),
-  })
+  # kb.write_json(filename=output_dir / "events.json", data={
+  #     "collisions":  kb.process_collisions(collisions, scene, assets_subset=visible_foreground_assets),
+  # })
 
   imageio.mimsave(str(kb.as_path(output_dir) / "movid.gif"),
                   data_stack['rgba'])
