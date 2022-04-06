@@ -101,6 +101,8 @@ TEST_FREEZE_FRAME = 99 if RENDER_TEST else 0
 TEST_NUM_FRAME = 100
 TEST_CAMERA = 'circle'
 TEST_CAM_R = 2.5
+# TEXTURE_PATH = 'examples/tex/plywood_diff_4k.jpg'
+TEXTURE_PATH = 'examples/tex/t_brick_floor_002_diffuse_4k.jpg'
 
 parser.set_defaults(
     save_state=True,
@@ -115,7 +117,7 @@ FLAGS = parser.parse_args()
 FLAGS.objects_set = 'shapenet'
 FLAGS.seed = 1
 np.random.seed(FLAGS.seed)
-FLAGS.job_dir = 'output/decompose/multi_car_rand/'
+FLAGS.job_dir = 'output/decompose/chair_v2/'
 if STATIC:
   FLAGS.job_dir += 'static'
 else:
@@ -124,7 +126,7 @@ if RENDER_TEST:
   FLAGS.job_dir += '_test'
 FLAGS.background = 'clevr'
 FLAGS.camera = 'rotate_random'
-FLAGS.waypoint_seed = 123
+FLAGS.waypoint_seed = 321
 FLAGS.object_size = 5
 FLAGS.object_friction = 0
 FLAGS.object_restitution = 1
@@ -133,36 +135,65 @@ FLAGS.reallocate = True
 
 STATIC_OBJS = [
     {
-        "asset_id": "02958343_f6906412622f5853413113c385698bb2",
-        "scale": 4, "object_restitution": 0, "position": (-6.2, -5, 1), "quaternion": (1, 1, 0.15, 0.15)
+        "asset_id": "02871439_586356e8809b6a678d44b95ca8abc7b2",  # bookshelf
+        "scale": 4, "object_restitution": 0, "position": (-2.5, -4, 0.82), "quaternion": (0.706474, 0.706474, -0.029844, -0.029844)
     },
     {
-        "asset_id": "02958343_2928f77d711bf46eaa69dfdc5532bb13",
-        "scale": 4, "object_restitution": 0, "position": (7, 3/2, 1), "quaternion": (1, 1, -0.5, -0.5)
+        "asset_id": "04256520_e9d6a366a92a61d979c851829c339535",  # sofa
+        "scale": 6, "object_restitution": 0, "position": (0.662423, 3.70227, 0.417688), "quaternion": (0.270095, 0.270095, 0.653493, 0.653493)
     },
     {
-        "asset_id": "02958343_9752827fb7788c2d5c893a899536502e",
-        "scale": 4, "object_restitution": 0, "position": (10, -3.5, 1), "quaternion": (1, 1, 0.5, 0.5)
+        "asset_id": "03636649_de5799693fbddbe3c4560b8f156e749",  # lamp
+        "scale": 6, "object_restitution": 0, "position": (2.43664, -3.8925, 1.73538), "quaternion": (0.699312, 0.699312, 0.104714, 0.104714)
     },
 ]
 
 DYNAMIC_OBJS = [
     {
-        "asset_id": "02958343_d4d7d596cf08754e2dfac2620a0cf07b",
-        "scale": 4, "object_restitution": 0.9, "position": (-1, -5, 4),
-        "init_velocity": (-1, 3, -1), "object_friction": 0
+        "asset_id": "03001627_653c0f8b819872b41a6af642cfc1a2bc", # chair
+        "scale": 2, "object_restitution": 0.5, "position": (-7.49685, 7.00034, 0.8),
+        "init_velocity": (1.5, -3, 0), "angular_velocity": (0, 0, 2),
+        "quaternion": (1, 1, -0.5, -0.5), "object_friction": 0
     },
     {
-        "asset_id": "02958343_1a56d596c77ad5936fa87a658faf1d26",
-        "scale": 4, "object_restitution": 0.9, "position": (4, 11, 4),
-        "init_velocity": (-2, -6, 0), "quaternion": (1, 1, -0.5, -0.5), "object_friction": 0
-    },
-    {
-        "asset_id": "02958343_5876e90c8f0b15e112ed57dd1bc82aa3",
-        "scale": 4, "object_restitution": 0.9, "position": (-10, 10, 1),
-        "init_velocity": (6, -6, -4), "quaternion": (0.2, 0.2, -0.67, -0.67), "object_friction": 0
+        "asset_id": "02773838_c4cb5bcb1a9399ae504721639e19f609", # bag
+        "scale": 2, "object_restitution": 0.9, "position": (-7.49685, -7.00034, 4),
+        "init_velocity": (2, 4, 0), "angular_velocity": (0, 0, 1),
+        "quaternion": (1, 1, -0.5, -0.5), "object_friction": 0
     },
 ]
+# STATIC_OBJS = [
+#     {
+#         "asset_id": "02958343_f6906412622f5853413113c385698bb2",
+#         "scale": 4, "object_restitution": 0, "position": (-6.2, -5, 1), "quaternion": (1, 1, 0.15, 0.15)
+#     },
+#     {
+#         "asset_id": "02958343_2928f77d711bf46eaa69dfdc5532bb13",
+#         "scale": 4, "object_restitution": 0, "position": (7, 3/2, 1), "quaternion": (1, 1, -0.5, -0.5)
+#     },
+#     {
+#         "asset_id": "02958343_9752827fb7788c2d5c893a899536502e",
+#         "scale": 4, "object_restitution": 0, "position": (10, -3.5, 1), "quaternion": (1, 1, 0.5, 0.5)
+#     },
+# ]
+
+# DYNAMIC_OBJS = [
+#     {
+#         "asset_id": "02958343_d4d7d596cf08754e2dfac2620a0cf07b",
+#         "scale": 4, "object_restitution": 0.9, "position": (-1, -5, 4),
+#         "init_velocity": (-1, 3, -1), "object_friction": 0
+#     },
+#     {
+#         "asset_id": "02958343_1a56d596c77ad5936fa87a658faf1d26",
+#         "scale": 4, "object_restitution": 0.9, "position": (4, 11, 4),
+#         "init_velocity": (-2, -6, 0), "quaternion": (1, 1, -0.5, -0.5), "object_friction": 0
+#     },
+#     {
+#         "asset_id": "02958343_5876e90c8f0b15e112ed57dd1bc82aa3",
+#         "scale": 4, "object_restitution": 0.9, "position": (-10, 10, 1),
+#         "init_velocity": (6, -6, -4), "quaternion": (0.2, 0.2, -0.67, -0.67), "object_friction": 0
+#     },
+# ]
 
 
 def euler_to_xyz(r, theta, phi):
@@ -221,8 +252,12 @@ elif FLAGS.camera == 'rotate_random':
   r = 15
   THETA = 2.5
   PHI = 1
-  THETA_RANGE = [2.5, 2.5 + np.pi/4]
+  THETA_RANGE = [2, 2 + np.pi/4]
   PHI_RANGE = [1, 1.2]
+  # THETA_RANGE = [2.5, 2.5 + np.pi/4]
+  # PHI_RANGE = [1, 1.2]
+  #   THETA_RANGE = [2, 2 + np.pi/2]
+  # PHI_RANGE = [0.75, 1.25]
   N_WAYPOINTS = 10
 
   rng = np.random.default_rng(FLAGS.waypoint_seed)
@@ -287,7 +322,7 @@ mat = bpy_scene.objects[f'floor{0}'].active_material
 tree = mat.node_tree
 mat_node = tree.nodes["Principled BSDF"]
 tex_node = tree.nodes.new('ShaderNodeTexImage')
-tex_node.image = bpy.data.images.load('examples/tex/plywood_diff_4k.jpg')
+tex_node.image = bpy.data.images.load(TEXTURE_PATH)
 # tex_node.image = bpy.data.images.load('examples/tex/t_brick_floor_002_diffuse_4k.jpg')
 tree.links.new(tex_node.outputs['Color'], mat_node.inputs['Base Color'])
 map_node = tree.nodes.new('ShaderNodeMapping')
@@ -302,14 +337,14 @@ tree.links.new(tex_coord.outputs["UV"], map_node.inputs["Vector"])
 scene_metadata = {}
 sun = core.DirectionalLight(name="sun",
                             color=color.Color.from_name("white"), shadow_softness=0.2,
-                            intensity=1.0, position=(-11.6608, 6.62799, 25.8232))
+                            intensity=1.5, position=(-11.6608, 6.62799, 25.8232))
 # sun = core.PointLight(name="lamp_key",
 #                               color=color.Color.from_name("white"), intensity=6000,
 #                               position=(13, -5, 13))
-lamp_key = core.PointLight(name="lamp_key",
-                           color=color.Color.from_name("white"), intensity=300,
-                           position=(-6.44671, 2.90517, 4.2584))
-lights = [sun, lamp_key]
+# lamp_key = core.PointLight(name="lamp_key",
+#                            color=color.Color.from_name("white"), intensity=300,
+#                            position=(-6.44671, 2.90517, 4.2584))
+lights = [sun]
 
 # jitter lights
 for light in lights:
@@ -388,17 +423,18 @@ OBJ_ID = 0
 
 
 def add_random_shapnet_object(
-    rng,
-    spawn_region=((-1, -1, -1), (1, 1, 1)),
-    asset_id='02958343_d4d7d596cf08754e2dfac2620a0cf07b',
-    position=(0, 0, 0),
-    scale=1,
-    quaternion=(1, 1, 0, 0),
-    object_friction=FLAGS.object_friction,
-    object_restitution=FLAGS.object_restitution,
-    init_velocity=(0, 0, 0),
-    reallocate=False,
-    static=False,):
+        rng,
+        spawn_region=((-1, -1, -1), (1, 1, 1)),
+        asset_id='02958343_d4d7d596cf08754e2dfac2620a0cf07b',
+        position=(0, 0, 0),
+        scale=1,
+        quaternion=(1, 1, 0, 0),
+        object_friction=FLAGS.object_friction,
+        object_restitution=FLAGS.object_restitution,
+        init_velocity=(0, 0, 0),
+        angular_velocity=(0, 0, 0),
+        reallocate=False,
+        static=False,):
   global OBJ_ID
   obj = asset_source.create(asset_id=asset_id, name=f'obj_{OBJ_ID}')
   OBJ_ID += 1
@@ -417,6 +453,7 @@ def add_random_shapnet_object(
   # obj.quaternion = kb.Quaternion(axis=quaternion, degrees=90)
   obj.quaternion = quaternion
   obj.velocity = init_velocity
+  obj.angular_velocity = angular_velocity
   logging.info("    Added %s at %s", obj.asset_id, obj.position)
   if static:
     obj.friction = 1.0
@@ -430,7 +467,7 @@ def add_random_shapnet_object(
 logging.info("Placing static objects:")
 for params in STATIC_OBJS:
   obj = add_random_shapnet_object(rng=rng, **params)
-  
+
 # obj = add_random_shapnet_object(rng=rng, asset_id="02958343_f6906412622f5853413113c385698bb2",
 #                                 scale=4, object_restitution=0, position=(-6.2, -5, 1), quaternion=(1, 1, 0.15, 0.15))
 # obj = add_random_shapnet_object(rng=rng, asset_id="02958343_2928f77d711bf46eaa69dfdc5532bb13",
@@ -470,7 +507,7 @@ if not STATIC:
   #     4, 11, 4), init_velocity=(-2, -6, 0), quaternion=(1, 1, 3, 3), object_friction=0)
   # obj = add_random_shapnet_object(rng=rng, asset_id="02958343_5876e90c8f0b15e112ed57dd1bc82aa3", scale=4, object_restitution=0.9,
   #                                 position=(-10, 10, 1), init_velocity=(6, -6, -4), quaternion=(0.2, 0.2, -0.67, -0.67), object_friction=0)
-  
+
   if RENDER_TEST:
     if TEST_FREEZE_FRAME < key_frame:
       simulator.run(frame_start=0, frame_end=TEST_FREEZE_FRAME)
